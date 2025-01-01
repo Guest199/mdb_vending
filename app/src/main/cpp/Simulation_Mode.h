@@ -1,0 +1,19 @@
+//
+// Created by zeevm on 22/09/2023.
+//
+
+#ifndef MDB_VENDING_SIMULATION_MODE_H
+#define MDB_VENDING_SIMULATION_MODE_H
+
+
+enum Simulation_Mode {
+    NO_SIMULATION = 0,
+    REGULAR_SEQUENCE_SCENARIO = 1,
+    FAILURE_IN_SUPPLYING_SCENARIO = 2,
+    NO_SELECTION_SCENARIO = 3,
+
+
+};
+
+
+#endif //MDB_VENDING_SIMULATION_MODE_H

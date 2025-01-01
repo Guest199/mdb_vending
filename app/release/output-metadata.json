@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "artifactType": {
+    "type": "APK",
+    "kind": "Directory"
+  },
+  "applicationId": "com.adytech.mdb_vending",
+  "variantName": "release",
+  "elements": [
+    {
+      "type": "SINGLE",
+      "filters": [],
+      "attributes": [],
+      "versionCode": 1004,
+      "versionName": "1.0.04",
+      "outputFile": "app-release.apk"
+    }
+  ],
+  "elementType": "File"
+}

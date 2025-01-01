@@ -1,0 +1,104 @@
+plugins {
+    id 'com.android.application' apply false
+    id 'com.android.library' apply false
+}
+// *************** Switch LIB and APP modes
+//
+def is_lib = false
+//
+// ***************************************
+
+if (is_lib)
+{
+    apply plugin: 'com.android.library'
+}
+else
+{
+    apply plugin: 'com.android.application'
+}
+
+
+android {
+    compileSdk 32
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 30
+        versionCode 1004
+        versionName "1.0.04"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            // Specifies the ABI configurations of your native
+            // libraries Gradle should build and package with your APK.
+            abiFilters 'armeabi-v7a'
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++11 -L../../../../src/main/jniLibs/armeabi-v7a -DCMAKE_BUILD_TYPE=Debug "
+            }
+        }
+    }
+
+    ndkVersion '22.0.7026061'
+
+    // Exclude when library
+    if (is_lib) {
+        packagingOptions {
+            exclude 'lib/armeabi-v7a/liblog.so'
+            exclude 'lib/armeabi-v7a/libDCL.so'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+
+    // Set output filename when library
+    if (is_lib) {
+        libraryVariants.all { variant ->
+            variant.outputs.each { output ->
+                def outputFile = output.outputFile
+                if (outputFile != null && outputFile.name.endsWith('.aar')) {
+                    def fileName = "MDB_vending-${variant.name}-${defaultConfig.versionName}.aar"
+                    output.outputFileName = new File("./../../../build/", fileName)
+                }
+            }
+        }
+
+        // Exclude when library
+        sourceSets {
+            main {
+                java {
+                    exclude '**/MainActivity.java'
+                }
+
+                manifest.srcFile 'src/main/AndroidManifest_no_gui.xml'
+            }
+        }
+    }
+}
+dependencies {
+
+    implementation 'com.android.support:appcompat-v7:28.0.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}
