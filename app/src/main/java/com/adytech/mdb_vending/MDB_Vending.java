@@ -21,6 +21,10 @@ public class MDB_Vending {
         return native_MDB_get_max_price();
     }
 
+    public void MDB_trigger_begin_session(){
+        native_MDB_trigger_begin_session();
+    }
+
     public void MDB_set_user_funds(int user_funds){
         native_MDB_set_user_funds(user_funds);
     }
@@ -56,6 +60,7 @@ public class MDB_Vending {
     private native void native_MDB_end_vend_state();
     private native void native_MDB_vend_approval(boolean approved);
     private native void native_MDB_set_simulation_mode(int simulation_mode);
+    private native void native_MDB_trigger_begin_session();
 
 
 
