@@ -74,3 +74,11 @@ Java_com_adytech_mdb_1vending_MDB_1Vending_native_1MDB_1set_1simulation_1mode(JN
                                                                        jint simulation_mode) {
     MDB_Driver::get_instance().set_simulation_mode((int)simulation_mode);
 }
+//ADDED
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_adytech_mdb_1vending_MDB_1Vending_native_1MDB_1trigger_1begin_1session(JNIEnv *env,
+                                                                                jobject thiz) {
+    MDB_Driver::get_instance().trigger_begin_session();
+}

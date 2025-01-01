@@ -21,10 +21,6 @@ public class MDB_Vending {
         return native_MDB_get_max_price();
     }
 
-    public void MDB_trigger_begin_session(){
-        native_MDB_trigger_begin_session();
-    }
-
     public void MDB_set_user_funds(int user_funds){
         native_MDB_set_user_funds(user_funds);
     }
@@ -51,6 +47,11 @@ public class MDB_Vending {
         native_MDB_set_simulation_mode(simulation_mode.code);
     }
 
+    // ADDED
+    public void MDB_trigger_begin_session(){
+        native_MDB_trigger_begin_session();
+    }
+
     private native void native_MDB_slave_func();
     private native int native_MDB_get_max_price();
     private native void native_MDB_set_user_funds(int user_funds) ;
@@ -60,8 +61,9 @@ public class MDB_Vending {
     private native void native_MDB_end_vend_state();
     private native void native_MDB_vend_approval(boolean approved);
     private native void native_MDB_set_simulation_mode(int simulation_mode);
-    private native void native_MDB_trigger_begin_session();
 
+    // ADDED
+    private native void native_MDB_trigger_begin_session();
 
 
 };

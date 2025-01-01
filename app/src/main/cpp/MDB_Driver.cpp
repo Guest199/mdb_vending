@@ -41,6 +41,7 @@
 
 #define MAX_MDB_ADDR_SIZE 16
 #define MDB_DEV_NAME "/dev/mdb_slave"
+#define MDB_LOGGER "MDB_LOG"
 #define ERR_P(fmt,args...) do {char L_sbuf[1024]={0};snprintf(L_sbuf,sizeof(L_sbuf),"%s%s%s","[%s][%d]:",fmt,"\n");printf(L_sbuf,__FUNCTION__,__LINE__,##args);fflush(stdout);} while (0)
 #define ERR(fmt,args...) do {ERR_P(fmt,##args);usleep(200);} while (0)
 
@@ -87,100 +88,39 @@ int MDB_Driver::mdb_set_mode(int fd, int mode)
     return ioctl(fd, IOCTL_MDB_SET_MODE, mode);
 }
 
-bool MDB_Driver::mdb_read(uint16_t* data)
-{
-    return read(m_fd, (char*)data, 2) == 2;
+
+
+bool MDB_Driver::mdb_write(const uint16_t data, char* msg){
+    __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE","10. mdb write 0x%04X %s" , data, msg);
+    return MDB_Driver::mdb_write(data);
 }
-//int MDB_Driver::mdb_read(int fd, unsigned short *buf, unsigned int count,
-//             unsigned int timeout, unsigned int interval, int return_on_modeset)
-//{
-//    fd_set fds;
-//    struct timeval time = {0, 0};
-//    int ret = 0;
-//    int rlen = 0;
-//    unsigned short data = 0;
-//    int index = 0;
-//
-//    errno = 0;
-//
-//    if(fd < 0 || !buf || (return_on_modeset != 0 && return_on_modeset != 1)){
-//        errno = EINVAL;
-//        return -1;
-//    }
-//
-//    if(count == 0){
-//        return 0;
-//    }
-//
-//    FD_ZERO(&fds);
-//    FD_SET(fd, &fds);
-//    time.tv_sec = timeout/1000000;
-//    time.tv_usec = timeout%1000000;
-//    ret = select(fd+1, &fds, NULL, NULL, &time);
-//    switch(ret){
-//        case 0:
-//        case -1:
-//            errno = -ETIMEDOUT;
-//            rlen = -1;
-//            break;
-//        default:
-//            data = 0;
-//            if(FD_ISSET(fd, &fds)){
-//                rlen = read(fd, &data, 2);
-//            }
-//            break;
-//    }
-//
-//    if(rlen==2){
-//        buf[index++] = data;
-//    }else{
-//        return -1;
-//    }
-//
-//    if(return_on_modeset && (data & MODE_SET_BIT)){
-//        return index;
-//    }
-//
-//    while(index < count){
-//        data = 0;
-//        FD_ZERO(&fds);
-//        FD_SET(fd, &fds);
-//        time.tv_sec = interval/1000000;
-//        time.tv_usec = interval%1000000;
-//
-//        ret = select(fd+1, &fds, NULL, NULL, &time);
-//        switch(ret){
-//            case 0:
-//            case -1:
-//                rlen = -1;
-//                break;
-//            default:
-//                data = 0;
-//                rlen = read(fd, &data, 2);
-//                break;
-//        }
-//
-//        if(rlen==2){
-//            buf[index++] = data;
-//            if(return_on_modeset && (data & MODE_SET_BIT)){
-//                return index;
-//            }
-//        }else{
-//            break;
-//        }
-//    }
-//
-//    return index;
+
+bool MDB_Driver::mdb_read(uint16_t* data, char* msg){
+    bool flag = MDB_Driver::mdb_read(data);
+    uint16_t* pre;
+    memcpy(pre, data, sizeof(data));
+    __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE", "11. mdb read %s 0x%04X > " , msg , pre , data);
+    return flag;
+}
+
+//bool MDB_Driver::mdb_read(uint16_t* data, char* msg){
+//    __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE", "11. mdb read 0x%04X %s" , data, msg);
+//    return MDB_Driver::mdb_read(data);
 //}
 
-bool MDB_Driver::mdb_write(const uint16_t data)
-{
-    errno = 0;
-    if (m_debug_on) {
-        MDB_LOG(LOG_INFO, "mdb_write 0x%04X", data);
+    bool MDB_Driver::mdb_read(uint16_t* data){
+        return read(m_fd, (char*)data, 2) == 2;
     }
-    return write(m_fd, (char*)&data, 2) == 2;
-}
+
+    bool MDB_Driver::mdb_write(const uint16_t data)
+    {
+        errno = 0;
+//        if (m_debug_on) {
+//            MDB_LOG(LOG_INFO, "mdb_write 0x%04X", data);
+//        }
+//        __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE","10. mdb write 0x%04X", data);
+        return write(m_fd, (char*)&data, 2) == 2;
+    }
 
 int MDB_Driver::mdb_flush(int fd, int queue_selector)
 {
@@ -274,7 +214,7 @@ void MDB_Driver::mdb_handle_setup()
     while (count < 6)
     {
         uint16_t buff;
-        if(mdb_read(&buff))
+        if(mdb_read(&buff, "105"))
         {
             vmc_data[count++] = (uint8_t)(buff & 0x00ff);
         }
@@ -286,7 +226,7 @@ void MDB_Driver::mdb_handle_setup()
     // compare calculated and received checksums
     if (checksum != vmc_data[5])
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "28");
         MDB_LOG(LOG_ERR, "checksum err, calculated = %d, actual = %d", checksum, vmc_data[5]);
         return; // checksum mismatch, error
     }
@@ -308,7 +248,7 @@ void MDB_Driver::mdb_handle_setup()
             uint16_t minPrice = ((uint16_t)vmc_data[3] << 8) | vmc_data[4];
             m_vmc_prices = {maxPrice, minPrice};
             // Send ACK
-            mdb_write(CSH_ACK);
+            mdb_write(CSH_ACK, "29");
             // Change state to DISABLED
             m_csh_state = CSH_STATE_DISABLED;
         }; break;
@@ -332,7 +272,7 @@ void MDB_Driver::send_config_info(void)
                  + m_csh_config.miscOptions );
 
 //    mdb_write(CSH_ACK);
-    mdb_write(CSH_READER_CONFIG_INFO);
+    mdb_write(CSH_READER_CONFIG_INFO, "31 CONFIG");
     mdb_write(m_csh_config.featureLevel);
     mdb_write(m_csh_config.countryCodeH);
     mdb_write(m_csh_config.countryCodeL);
@@ -346,46 +286,24 @@ void MDB_Driver::send_config_info(void)
 void MDB_Driver::mdb_slave_func()
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
-//    int fd = mdb_open(MDB_DEV_NAME);
-//    if (fd == -1)
-//    {
-//        MDB_LOG(LOG_ERR, "mdb_open failed, errno = %d", errno);
-//        return;
-//    }
 
+// OPEN CONNECTION
     set_priority();
     const char *serialPort = MDB_DEV_NAME;
+    const char *mdbLog = MDB_LOGGER;
     m_fd = open("/dev/mdb_slave", O_RDWR | O_NOCTTY, 0);
 
     if (m_fd == -1) {
-        __android_log_print(ANDROID_LOG_INFO, "EXPERIMENTAL", "++_**************__open_port: Unable to open MDB Port: %d -- %s ", m_fd, serialPort);
+        __android_log_print(ANDROID_LOG_INFO, mdbLog, "1. ++_**************__open_port: Unable to open MDB Port: %d -- %s ", m_fd, serialPort);
     }
+    __android_log_print(ANDROID_LOG_INFO, mdbLog, "2. open fd = %d", m_fd);
 
-//    MDB_LOG(LOG_INFO, "open fd = %d", fd);
-    __android_log_print(ANDROID_LOG_INFO, "EXPERIMENTAL", "open fd = %d", m_fd);
-    //set mode
+//SET MODE
     int mode = MDB_PERIPHERAL;
-//    int res = mdb_set_mode(fd, mode);
-//    if ( res == -1)
-//    {
-//        MDB_LOG(LOG_ERR, "mdb_set_mode failed, errno = %d", errno);
-//        return;
-//    }
-
     int ret_set_mode = ioctl(m_fd, IOCTL_MDB_SET_MODE, mode);
-//    MDB_LOG(LOG_INFO, "IOCTL_MDB_SET_MODE = %d", ret_set_mode);
-    __android_log_print(ANDROID_LOG_INFO, "EXPERIMENTAL", "IOCTL_MDB_SET_MODE = %d", ret_set_mode);
+    __android_log_print(ANDROID_LOG_INFO, mdbLog, "3. IOCTL_MDB_SET_MODE = %d", ret_set_mode);
 
-//    unsigned char addr_data[16];
-//
-//    addr_data[0]=0x10;
-//    int set_addr_ret = mdbp_set_addr(fd, addr_data, 1);
-//    if ( set_addr_ret != 0)
-//    {
-//        MDB_LOG(LOG_ERR, "mdbp_set_addr failed, errno = %d", errno);
-//        return;
-//    }
-//set addr
+//SET ADDRESS
     struct mdb_addr {
         int addr_size;
         unsigned char addr_data[16];
@@ -394,58 +312,37 @@ void MDB_Driver::mdb_slave_func()
     arr.addr_size = 1;
     arr.addr_data[0]=0x10;
     int ret_set_addr = ioctl(m_fd,IOCTL_MDBP_SET_ADDR, &arr);
-    __android_log_print(ANDROID_LOG_INFO, "EXPERIMENTAL",  "ret_set_addr = %d", ret_set_addr);
+    __android_log_print(ANDROID_LOG_INFO, mdbLog,  "4. ret_set_addr = %d", ret_set_addr);
 
-//    MDB_LOG(LOG_INFO, "ret_set_addr = %d", ret_set_addr);
-//    int ret_set_addr = ioctl(fd, IOCTL_MDBP_SET_ADDR, &arr);
-//    MDB_LOG(LOG_INFO, "IOCTL_MDBP_SET_ADDR = %d", ret_set_addr);
-
-    //flush buffer
-
-//    if (mdb_flush(fd, MDB_BUF_IO) != 0)
-//    {
-//        MDB_LOG(LOG_ERR, "mdb_flush failed, errno = %d", errno);
-//        return;
-//    }
-// I have no priveledges to do it, in the meantime will skip
-//    if (set_process_priority() != 0)
-//    {
-//        MDB_LOG(LOG_ERR, "set_process_priority failed, errno = %d", errno);
-//        return;
-//    }
+//FLUSH BUFFER
     int flush_sel = MDB_BUF_IO;
     int ret_flush = ioctl(m_fd, IOCTL_MDB_FLUSH_BUF, flush_sel);
-//    MDB_LOG(LOG_INFO, "ret_flush = %d", ret_flush);
-    __android_log_print(ANDROID_LOG_INFO, "MDB_Driver",  "ret_flush = %d", ret_flush);
-//    MDB_LOG(LOG_INFO, "mdb_slave_func start listening");
-    __android_log_print(ANDROID_LOG_INFO, "MDB_Driver",  "mdb_slave_func start listening");
+    __android_log_print(ANDROID_LOG_INFO, mdbLog,  "5. ret_flush = %d", ret_flush);
+    __android_log_print(ANDROID_LOG_INFO, mdbLog,  "6. mdb_slave_func start listening");
     char buff[120];
     char recv_buf[36]={0};
     bool b;
-//    while(true) {
-//        try {
-//
-//            MDB_LOG(LOG_ERR, "got here");
-//            std::this_thread::sleep_for(std::chrono::seconds(1));
-//            b = mdb_write(CSH_RESTARTED);
-//        } catch (std::exception e) {
-//            MDB_LOG(LOG_ERR, "err is %s", e.what());
-//        }
-//
-//
-//        MDB_LOG(LOG_INFO, "b is %d", b);
-//    }
 
-    uint16_t vmc_cmd;
+
+    uint16_t vmc_cmd , vmc_cmd_former;
     while (m_simulation_mode == NO_SIMULATION){
         bool ret = mdb_read(&vmc_cmd);
+//        bool ret = mdb_read(&vmc_cmd, "107. mdb_slave_func");
+
         if (ret) {
             if (m_debug_on) {
                 sprintf(buff, "ret %d read: 0x%04X", ret, vmc_cmd);
                 MDB_LOG(LOG_INFO, "%s", buff);
             }
+
             if ((vmc_cmd >= VMC_CMD_RESET) && (vmc_cmd <= VMC_CMD_EXPANSION)) {
-                MDB_LOG(LOG_INFO, "cmd = 0x%04X %s", vmc_cmd, to_string((VMC_Command)vmc_cmd).c_str());
+
+if (vmc_cmd != vmc_cmd_former ) {
+    __android_log_print(ANDROID_LOG_INFO, mdbLog, "7. cmd = %s (0x%04X) 0x%04X",
+                        to_string((VMC_Command) vmc_cmd).c_str(), vmc_cmd , m_csh_poll_state);
+    vmc_cmd_former = vmc_cmd;
+}
+
                 switch ((VMC_Command) vmc_cmd) {
                     case VMC_CMD_RESET:
                         mdb_handle_reset();
@@ -528,7 +425,7 @@ void MDB_Driver::mdb_handle_reset()
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     // Read CHK byte
     uint16_t data;
-    bool res = mdb_read(&data);
+    bool res = mdb_read(&data, "104");
 //    uint8_t expected_chksum = VMC_CMD_RESET;
 //    if(res && ((uint8_t)(data & 0x00ff)) == expected_chksum)
 //    {
@@ -548,8 +445,8 @@ void MDB_Driver::mdb_handle_reset()
         m_csh_poll_state = CSH_JUST_RESET_POLL_STATE;
 
         // Send Just_Reset back
-        mdb_write(CSH_JUST_RESET);
-        mdb_write(CSH_ACK);
+        mdb_write(CSH_JUST_RESET, "26");
+        mdb_write(CSH_ACK, "27");
 //    }
 }
 
@@ -558,10 +455,22 @@ void MDB_Driver::mdb_handle_reset()
  */
 void MDB_Driver::mdb_handle_poll(void)
 {
-    MDB_LOG(LOG_INFO, "POLL requested");
+//ADDED
+static int ack_cntr = 0, status =0;
+
     // Read checksum
     uint16_t vmc_chk;
-    bool ret = mdb_read(&vmc_chk);
+    bool ret = mdb_read(&vmc_chk );
+//    bool ret = mdb_read(&vmc_chk , "103. mdb_handle_poll");
+
+    if (m_csh_poll_state_former != m_csh_poll_state) {
+        __android_log_print(ANDROID_LOG_INFO, "MDB_LOG",
+                            "8. read = 0x%04X ,poll-state= %s (0x%04X)",
+                            vmc_chk, to_string_poll((Poll_State) m_csh_poll_state).c_str(),
+                            m_csh_poll_state);
+        m_csh_poll_state_former = m_csh_poll_state;
+    }
+
     switch (m_csh_poll_state) {
         case CSH_SILENCE_POLL_STATE:
             break;
@@ -575,17 +484,24 @@ void MDB_Driver::mdb_handle_poll(void)
             break; // <<<=== Global Display Message
         case CSH_RESTARTED_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_RESTARTED");
-            mdb_write(CSH_RESTARTED);
+            mdb_write(CSH_RESTARTED, "6");
             m_csh_poll_state = CSH_JUST_RESET_POLL_STATE;
             break;
         case CSH_ACK_POLL_STATE:
             // if no data is to send, answer with ACK
-            MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_ACK");
-            mdb_write(CSH_ACK);
+            MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_ACK %d", ack_cntr);
+            mdb_write(CSH_ACK );
+//            mdb_write(CSH_ACK , "CSH_ACK_POLL_STATE");
+ack_cntr++;
+if (ack_cntr == 100) {
+    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
+    MDB_LOG(LOG_INFO, "***********m_csh_poll_state %d => CSH_BEGIN_SESSION_POLL_STATE", ack_cntr);
+}
+
             break;
         case CSH_JUST_RESET_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_JUST_RESET");
-            mdb_write(CSH_JUST_RESET);
+            mdb_write(CSH_JUST_RESET, "7. CSH_JUST_RESET_POLL_STATE");
             send_config_info();
             m_csh_poll_state = CSH_ACK_POLL_STATE;
             break;
@@ -607,17 +523,17 @@ void MDB_Driver::mdb_handle_poll(void)
                          + user_funds_H
                          + user_funds_L );
 
-            mdb_write(CSH_BEGIN_SESSION);
-            mdb_write(user_funds_H);      // upper byte of funds available
+            mdb_write(CSH_BEGIN_SESSION, "8. CSH_BEGIN_SESSION");
+            mdb_write(user_funds_H);    // upper byte of funds available
             mdb_write(user_funds_L);      // lower byte of funds available
-            mdb_write(checksum | CSH_ACK);   // set Mode bit and send
+            mdb_write(checksum | CSH_ACK); // set Mode bit and send
             m_csh_state = CSH_STATE_SESSION_IDLE;
         }
             break; // <<<=== Global User Funds
         case CSH_SESSION_CANCEL_REQUEST_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_SESSION_CANCEL_REQUEST");
-            mdb_write(CSH_SESSION_CANCEL_REQUEST);
-            mdb_write(CSH_SESSION_CANCEL_REQUEST | CSH_ACK); // Checksum with Mode bit
+            mdb_write(CSH_SESSION_CANCEL_REQUEST, "12");
+            mdb_write(CSH_SESSION_CANCEL_REQUEST | CSH_ACK, "13"); // Checksum with Mode bit
             break;
         case CSH_VEND_APPROVED_POLL_STATE:
         {
@@ -629,7 +545,7 @@ void MDB_Driver::mdb_handle_poll(void)
             checksum = ((uint8_t)(CSH_VEND_APPROVED & 0x00FF)
                         + vend_amount_H
                         + vend_amount_L);
-            mdb_write(CSH_VEND_APPROVED);
+            mdb_write(CSH_VEND_APPROVED, "14. CSH_VEND_APPROVED");
             mdb_write(vend_amount_H);       // Vend Amount H
             mdb_write(vend_amount_L);       // Vend Amount L
             mdb_write(checksum | CSH_ACK);  // set Mode bit and send
@@ -642,9 +558,9 @@ void MDB_Driver::mdb_handle_poll(void)
             break;
         case CSH_END_SESSION_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_END_SESSION");
-            mdb_write(CSH_END_SESSION);
+            mdb_write(CSH_END_SESSION, "18. CSH_END_SESSION_POLL_STATE");
             MDB_LOG(LOG_INFO, "mdb_write 0x%04X", CSH_END_SESSION );
-            mdb_write(CSH_END_SESSION | CSH_ACK); // Checksum with Mode bit
+            mdb_write(CSH_END_SESSION | CSH_ACK, "19. CSH_END_SESSION_POLL_STATE"); // Checksum with Mode bit
             MDB_LOG(LOG_INFO, "mdb_write 0x%04X", CSH_END_SESSION | CSH_ACK);
 
             // Zero data of the former session
@@ -657,8 +573,8 @@ void MDB_Driver::mdb_handle_poll(void)
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_CANCELLED");
             if (m_csh_state == CSH_STATE_ENABLED)
             {
-                mdb_write(CSH_CANCELLED);
-                mdb_write(CSH_CANCELLED | CSH_ACK); // Checksum with Mode bit
+                mdb_write(CSH_CANCELLED, "20");
+                mdb_write(CSH_CANCELLED | CSH_ACK, "21"); // Checksum with Mode bit
             }
             break;
         case CSH_PERIPHERAL_ID_POLL_STATE:
@@ -673,14 +589,14 @@ void MDB_Driver::mdb_handle_poll(void)
             // calculate checksum, set Mode bit and store it
             malf_err_msg[2] = calc_checksum(malf_err_msg, 2) | CSH_ACK;
             for (int i = 0; i < 3; ++i) {
-                mdb_write(malf_err_msg[i]);
+                mdb_write(malf_err_msg[i], "22");
             }
         }
             break;
         case CSH_CMD_OUT_OF_SEQUENCE_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_CMD_OUT_OF_SEQUENCE");
-            mdb_write(CSH_CMD_OUT_OF_SEQUENCE);
-            mdb_write(CSH_CMD_OUT_OF_SEQUENCE | CSH_ACK);
+            mdb_write(CSH_CMD_OUT_OF_SEQUENCE, "23");
+            mdb_write(CSH_CMD_OUT_OF_SEQUENCE | CSH_ACK, "24");
             break;
         case CSH_DIAGNOSTIC_RESPONSE_POLL_STATE:
             MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_DIAGNOSTIC_RESPONSE");
@@ -719,9 +635,9 @@ void MDB_Driver::send_peripheral_ID(void)
     periph_id[30] = calc_checksum(periph_id, 29);
     // Send all data on the bus
     for (i = 0; i < 30; ++i)
-        mdb_write(periph_id[i]);
+        mdb_write(periph_id[i], "32");
 
-    mdb_write(periph_id[30] | CSH_ACK);
+    mdb_write(periph_id[30] | CSH_ACK, "33");
 }
 
 void MDB_Driver::mdb_handle_vend()
@@ -731,7 +647,7 @@ void MDB_Driver::mdb_handle_vend()
     uint8_t subcomm;
 
     // Store Subcommand in array
-    mdb_read(&subcomm_temp);
+    mdb_read(&subcomm_temp, "106. mdb_handle_vend");
     subcomm = (uint8_t)(subcomm_temp & 0x00FF); // get rid of Mode bit if present
     // Switch through subcommands
     switch(subcomm)
@@ -761,7 +677,7 @@ void MDB_Driver::vend_request(void)
     // Read all data and store it in an array, with a subcommand
     for (i = 0; i < 5; ++i)
     {
-        mdb_read(&vend_temp);
+        mdb_read(&vend_temp, "110. vend_request");
         vend_data[i] = (uint8_t)(vend_temp & 0x00FF); // get rid of Mode bit if present
     }
 
@@ -771,7 +687,7 @@ void MDB_Driver::vend_request(void)
     // compare calculated and received checksums
     if (checksum != vend_data[4])
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "39. vend_request");
         return; // checksum mismatch, error
     }
 
@@ -783,7 +699,7 @@ void MDB_Driver::vend_request(void)
     MDB_LOG(LOG_INFO, "item_cost = %d vend_amount = %d", m_item_price, m_vend_amount);
 
     // Send ACK to VMC
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK, "40. ");
 
     // Set uninterruptable VEND state
     m_csh_state = CSH_STATE_VEND;
@@ -824,16 +740,16 @@ void MDB_Driver::vend_failure_handler(void)
     // Wait for 1 element in buffer
     // 1 checksum
 
-    mdb_read(&temp);
+    mdb_read(&temp, "109");
     incoming_checksum = (uint8_t)(temp & 0x00FF); // get rid of Mode bit if present
     if (checksum != incoming_checksum)
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "37");
         return; // checksum mismatch, error
     }
     /* refund through server connection */
 
-    mdb_write(CSH_ACK); // in case of success
+    mdb_write(CSH_ACK, "38"); // in case of success
     // MalfunctionError(); -- in case of failure, like unable to connect to server
     // Return state to SESSION IDLE
     m_csh_state = CSH_STATE_SESSION_IDLE;
@@ -846,7 +762,7 @@ void MDB_Driver::vend_failure_handler(void)
 void MDB_Driver::vend_session_complete(void)
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK, "41. vend_session_complete");
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
 }
 
@@ -862,19 +778,19 @@ void MDB_Driver::vend_cash_sale(void)
 
     for (i = 0; i < 5; ++i)
     {
-        mdb_read(&vend_temp);
+        mdb_read(&vend_temp, "108");
         vend_data[i] = (uint8_t)(vend_temp & 0x00FF); // get rid of Mode bit if present
     }
     checksum += calc_checksum(vend_data, 4);
     if (checksum != vend_data[4])
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "34");
         return; // checksum mismatch, error
     }
 
     /* Cash sale implementation */
 
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK, "35");
 }
 
 void MDB_Driver::mdb_handle_reader()
@@ -888,7 +804,7 @@ void MDB_Driver::mdb_handle_reader()
     // Store received data in array
     for (i = 0; i < 2; ++i)
     {
-        mdb_read(&reader_temp);
+        mdb_read(&reader_temp, "102. mdb_handle_reader");
         reader_data[i] = (uint8_t)(reader_temp & 0x00FF); // get rid of Mode bit if present
     }
 
@@ -898,7 +814,7 @@ void MDB_Driver::mdb_handle_reader()
     // Second element is an incoming checksum, compare it to the calculated one
     if (checksum != reader_data[1])
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "25. mdb_handle_reader");
         MDB_LOG(LOG_ERR, "checksum failed, got %d instd of %d", reader_data[1], checksum);
         return; // checksum mismatch, error
     }
@@ -918,7 +834,7 @@ void MDB_Driver::mdb_handle_expansion()
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     uint16_t readCmd;
 
-    mdb_read(&readCmd);
+    mdb_read(&readCmd, "101");
     switch(readCmd)
     {
         case VMC_EXPANSION_REQUEST_ID  : expansion_request_ID(); break;
@@ -940,11 +856,11 @@ void MDB_Driver::vend_success_handler(void)
 
     for (i = 0; i < 3; ++i)
     {
-        mdb_read(&vend_temp);
+        mdb_read(&vend_temp, "11. vend_success_handler");
         vend_data[i] = (uint8_t)(vend_temp & 0x00FF); // get rid of Mode bit if present
     }
     /* here goes another check-check with a server */
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK, "42. vend_success_handler");
 
     // Return state to SESSION IDLE
     m_csh_state = CSH_STATE_SESSION_IDLE;
@@ -959,7 +875,7 @@ void MDB_Driver::disable(void)
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     m_csh_state = CSH_STATE_DISABLED;
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK ,  "3. disable");
 }
 
 void MDB_Driver::enable(void)
@@ -971,7 +887,7 @@ void MDB_Driver::enable(void)
     }
 
     m_csh_poll_state = CSH_ACK_POLL_STATE;
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK,  "4. enable");
 }
 
 void MDB_Driver::cancelled(void) 
@@ -979,8 +895,8 @@ void MDB_Driver::cancelled(void)
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     if (m_csh_state != CSH_STATE_ENABLED)
         return;
-    mdb_write(CSH_CANCELLED);
-    mdb_write(CSH_CANCELLED | CSH_ACK); // Checksum with Mode bit
+    mdb_write(CSH_CANCELLED ,  "1");
+    mdb_write(CSH_CANCELLED | CSH_ACK,  "2"); // Checksum with Mode bit
 }
 
 /*
@@ -1006,7 +922,7 @@ void MDB_Driver::expansion_request_ID(void)
     // Store data
     for (i = 0; i < 30; ++i)
     {
-        mdb_read(&temp);
+        mdb_read(&temp, "100");
         data[i] = (uint8_t)(temp & 0x00FF); // get rid of Mode bit if present
     }
 
@@ -1015,7 +931,7 @@ void MDB_Driver::expansion_request_ID(void)
     // Second element is an incoming checksum, compare it to the calculated one
     if (checksum != data[29])
     {
-        mdb_write(CSH_NAK);
+        mdb_write(CSH_NAK, "6");
         MDB_LOG(LOG_ERR, "Wrong checksum, got %d instd of %d", data[29], checksum);
         return; // checksum mismatch, error
     }
@@ -1027,7 +943,7 @@ void MDB_Driver::expansion_diagnostics(void)
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     uint8_t checksum = (uint8_t)(VMC_CMD_EXPANSION & 0x00FF) + VMC_EXPANSION_DIAGNOSTICS;
-    mdb_write(CSH_ACK);
+    mdb_write(CSH_ACK , "5");
 
 }
 
@@ -1039,32 +955,33 @@ void MDB_Driver::set_user_funds(uint16_t user_funds)
 
 void MDB_Driver::start_vending_state()
 {
-    MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
-//    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
-//    m_vend_state = VEND_STATE_WAITING_SELECTION;
 
-    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
-    m_vend_state = VEND_STATE_WAITING_SELECTION;
+    MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
+      m_vend_state = VEND_STATE_WAITING_SELECTION;
+
+//    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
+    m_csh_poll_state = CSH_ACK_POLL_STATE;
+//    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
 
     if ( m_simulation_mode != NO_SIMULATION)
     {
         MDB_LOG(LOG_INFO, "in simulation state");
         std::thread select_thread = std::thread([](MDB_Driver* driver)
-                    {
-                        MDB_LOG(LOG_INFO, "sleep_for 10 sec to simulate selection");
-                        std::this_thread::sleep_for(std::chrono::seconds(10));
-                        if (driver->m_simulation_mode == NO_SELECTION_SCENARIO)
-                        {
-                            MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_FAILED");
-                            driver->m_vend_state = VEND_STATE_FAILED;
-                        }
-                        else
-                        {
-                            MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_WAITING_APPROVAL");
-                            driver->m_vend_state = VEND_STATE_WAITING_APPROVAL;
-                            driver->m_item_price = 500;
-                        }
-                    }, this);
+            {
+                MDB_LOG(LOG_INFO, "sleep_for 10 sec to simulate selection");
+                std::this_thread::sleep_for(std::chrono::seconds(10));
+                if (driver->m_simulation_mode == NO_SELECTION_SCENARIO)
+                {
+                    MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_FAILED");
+                    driver->m_vend_state = VEND_STATE_FAILED;
+                }
+                else
+                {
+                    MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_WAITING_APPROVAL");
+                    driver->m_vend_state = VEND_STATE_WAITING_APPROVAL;
+                    driver->m_item_price = 500;
+                }
+            }, this);
         select_thread.detach();
     }
 }
@@ -1099,7 +1016,7 @@ uint16_t MDB_Driver::get_max_price()
 void MDB_Driver::vend_denied()
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
-    mdb_write(CSH_VEND_DENIED);
+    mdb_write(CSH_VEND_DENIED, "36");
     mdb_write(CSH_VEND_DENIED | CSH_ACK); // Checksum with Mode bit set
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
     m_vend_state = VEND_STATE_DENIED;
@@ -1112,4 +1029,10 @@ uint16_t MDB_Driver::get_amount_of_items()
     return m_vend_amount;
 }
 
+// ADD
 
+void MDB_Driver::trigger_begin_session()
+{
+    MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
+    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
+}

@@ -103,6 +103,31 @@ class MDB_Driver {
         CSH_DIAGNOSTIC_RESPONSE_POLL_STATE,
     } Poll_State;
 
+    inline std::string to_string_poll(Poll_State cmd)
+    {
+        switch (cmd)
+        {
+            case CSH_ACK_POLL_STATE: 					return "CSH_ACK_POLL_STATE"; break;
+            case CSH_SILENCE_POLL_STATE: 				return "CSH_SILENCE_POLL_STATE"; break;
+            case CSH_JUST_RESET_POLL_STATE: 			return "CSH_JUST_RESET_POLL_STATE"; break;
+            case CSH_RESTARTED_POLL_STATE: 				return "CSH_RESTARTED_POLL_STATE"; break;
+            case CSH_READER_CONFIG_INFO_POLL_STATE: 	return "CSH_READER_CONFIG_INFO_POLL_STATE"; break;
+            case CSH_DISPLAY_REQUEST_POLL_STATE: 		return "CSH_DISPLAY_REQUEST_POLL_STATE"; break;
+            case CSH_BEGIN_SESSION_POLL_STATE: 			return "CSH_BEGIN_SESSION_POLL_STATE"; break;
+            case CSH_SESSION_CANCEL_REQUEST_POLL_STATE: return "CSH_SESSION_CANCEL_REQUEST_POLL_STATE"; break;
+            case CSH_VEND_APPROVED_POLL_STATE: 			return "CSH_VEND_APPROVED_POLL_STATE"; break;
+            case CSH_VEND_DENIED_POLL_STATE: 			return "CSH_VEND_DENIED_POLL_STATE"; break;
+            case CSH_END_SESSION_POLL_STATE: 			return "CSH_END_SESSION_POLL_STATE"; break;
+            case CSH_CANCELLED_POLL_STATE: 				return "CSH_CANCELLED_POLL_STATE"; break;
+            case CSH_PERIPHERAL_ID_POLL_STATE: 			return "CSH_PERIPHERAL_ID_POLL_STATE"; break;
+            case CSH_MALFUNCTION_ERROR_POLL_STATE: 		return "CSH_MALFUNCTION_ERROR_POLL_STATE"; break;
+            case CSH_CMD_OUT_OF_SEQUENCE_POLL_STATE: 	return "CSH_CMD_OUT_OF_SEQUENCE_POLL_STATE"; break;
+            case CSH_DIAGNOSTIC_RESPONSE_POLL_STATE: 	return "CSH_DIAGNOSTIC_RESPONSE_POLL_STATE"; break;
+            default:
+                return "UNKNOWN";
+        }
+    }
+
     typedef enum CSH_States {
         /* Level 01 Cashless (CSH) device
         states
@@ -208,6 +233,7 @@ private:
     VMC_Config m_vmc_config = VMC_Config(0, 0, 0, 0);
     VMC_Prices m_vmc_prices = VMC_Prices(0, 0);
     Poll_State m_csh_poll_state = CSH_RESTARTED_POLL_STATE;
+    Poll_State m_csh_poll_state_former;
     uint8_t m_csh_state = CSH_STATE_INACTIVE;
     // Available user funds, changed via server connection in the Enabled state
     uint16_t m_user_funds  = 0x0000;
@@ -219,7 +245,7 @@ private:
     // it also can be a single item position value in the VMC memory
     uint16_t m_vend_amount = 0x0000;
     uint8_t m_csh_error_code = 0;
-    bool m_debug_on = false;
+    bool    m_debug_on = false;
     CSH_Config m_csh_config = {
             0x01, // featureLevel
             0x03, // countryCode
@@ -249,6 +275,8 @@ COMMAND option bits.*/
 
     bool mdb_read(uint16_t* data);
     bool mdb_write(const uint16_t data);
+    bool mdb_read(uint16_t* data, char* msg);
+    bool mdb_write(const uint16_t data, char* msg);
     void mdb_handle_setup();
     uint8_t calc_checksum(uint8_t *array, uint8_t arr_size);
     void send_config_info();
@@ -287,6 +315,7 @@ public:
     uint16_t get_item_price();
     uint16_t get_amount_of_items();
     void end_vending_state();
+    void trigger_begin_session();
 
     void vend_approval(bool approved);
     void set_simulation_mode(int simulation_mode){ m_simulation_mode = (Simulation_Mode)simulation_mode; };
