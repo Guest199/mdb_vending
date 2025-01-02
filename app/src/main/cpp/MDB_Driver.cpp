@@ -710,6 +710,7 @@ void MDB_Driver::vend_request(void)
     // Set uninterruptable VEND state
     m_csh_state = CSH_STATE_VEND;
     m_csh_poll_state = CSH_ACK_POLL_STATE;
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","1. VEND_STATE_WAITING_APPROVAL" );
     m_vend_state = VEND_STATE_WAITING_APPROVAL;
 }
 
@@ -717,6 +718,7 @@ void MDB_Driver::vend_approval(bool approved)
 {
     MDB_LOG(LOG_INFO, "%s approved %d", __PRETTY_FUNCTION__, approved );
     m_csh_poll_state = approved ? CSH_VEND_APPROVED_POLL_STATE : CSH_VEND_DENIED_POLL_STATE;
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","7. VEND_STATE_SUPPLYING" );
     m_vend_state = VEND_STATE_SUPPLYING;
     if (m_simulation_mode != NO_SIMULATION) {
         std::thread supplying_thread = std::thread([](MDB_Driver *driver) {
@@ -725,11 +727,13 @@ void MDB_Driver::vend_approval(bool approved)
             if (driver->m_simulation_mode == FAILURE_IN_SUPPLYING_SCENARIO)
             {
                 MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_SUCCEEDED");
+                __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","3. VEND_STATE_FAILED" );
                 driver->m_vend_state = VEND_STATE_FAILED;
             }
             else
             {
                 MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_SUCCEEDED");
+                __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","4. VEND_STATE_SUCCEEDED" );
                 driver->m_vend_state = VEND_STATE_SUCCEEDED;
             }
         }, this);
@@ -762,6 +766,7 @@ void MDB_Driver::vend_failure_handler(void)
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
 
     MDB_LOG(LOG_INFO, "setting state to VEND_STATE_FAILED");
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","9. VEND_STATE_FAILED" );
     m_vend_state = VEND_STATE_FAILED;
 }
 
@@ -870,6 +875,7 @@ void MDB_Driver::vend_success_handler(void)
 
     // Return state to SESSION IDLE
     m_csh_state = CSH_STATE_SESSION_IDLE;
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","10. VEND_STATE_SUCCEEDED" );
     m_vend_state = VEND_STATE_SUCCEEDED;
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
 }
@@ -963,6 +969,7 @@ void MDB_Driver::start_vending_state()
 {
 
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","6. VEND_STATE_WAITING_SELECTION" );
     m_vend_state = VEND_STATE_WAITING_SELECTION;
 
 //    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
@@ -979,11 +986,13 @@ void MDB_Driver::start_vending_state()
                                                     if (driver->m_simulation_mode == NO_SELECTION_SCENARIO)
                                                     {
                                                         MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_FAILED");
+                                                        __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","1. VEND_STATE_FAILED" );
                                                         driver->m_vend_state = VEND_STATE_FAILED;
                                                     }
                                                     else
                                                     {
                                                         MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_WAITING_APPROVAL");
+                                                        __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","2. VEND_STATE_WAITING_APPROVAL" );
                                                         driver->m_vend_state = VEND_STATE_WAITING_APPROVAL;
                                                         driver->m_item_price = 500;
                                                     }
@@ -996,6 +1005,7 @@ void MDB_Driver::end_vending_state()
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","5. VEND_STATE_IDLE" );
     m_vend_state = VEND_STATE_IDLE;
 }
 
@@ -1025,6 +1035,7 @@ void MDB_Driver::vend_denied()
     mdb_write(CSH_VEND_DENIED, "36");
     mdb_write(CSH_VEND_DENIED | CSH_ACK); // Checksum with Mode bit set
     m_csh_poll_state = CSH_END_SESSION_POLL_STATE;
+    __android_log_print(ANDROID_LOG_INFO, "VEND_STATE","8. VEND_STATE_DENIED" );
     m_vend_state = VEND_STATE_DENIED;
 }
 
