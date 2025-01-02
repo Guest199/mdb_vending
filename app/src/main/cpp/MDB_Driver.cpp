@@ -95,12 +95,18 @@ bool MDB_Driver::mdb_write(const uint16_t data, char* msg){
     return MDB_Driver::mdb_write(data);
 }
 
-bool MDB_Driver::mdb_read(uint16_t* data, char* msg){
-    bool flag = MDB_Driver::mdb_read(data);
-    uint16_t* pre;
-    memcpy(pre, data, sizeof(data));
-    __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE", "11. mdb read %s 0x%04X > " , msg , pre , data);
-    return flag;
+bool MDB_Driver::mdb_read(uint16_t* data, char* msg) {
+    uint16_t initial_value = *data;
+
+    bool result = read(m_fd, (char*)data, 2) == 2;
+
+    if (initial_value != data_former || *data != data_rs_former) {
+        __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE",
+                            "11. read %s call: 0x%04X, result: 0x%04X", msg, initial_value, *data);
+        data_former = initial_value;
+        data_rs_former = *data;
+    }
+    return result;
 }
 
 //bool MDB_Driver::mdb_read(uint16_t* data, char* msg){
@@ -108,19 +114,19 @@ bool MDB_Driver::mdb_read(uint16_t* data, char* msg){
 //    return MDB_Driver::mdb_read(data);
 //}
 
-    bool MDB_Driver::mdb_read(uint16_t* data){
-        return read(m_fd, (char*)data, 2) == 2;
-    }
+bool MDB_Driver::mdb_read(uint16_t* data){
+    return read(m_fd, (char*)data, 2) == 2;
+}
 
-    bool MDB_Driver::mdb_write(const uint16_t data)
-    {
-        errno = 0;
+bool MDB_Driver::mdb_write(const uint16_t data)
+{
+    errno = 0;
 //        if (m_debug_on) {
 //            MDB_LOG(LOG_INFO, "mdb_write 0x%04X", data);
 //        }
 //        __android_log_print(ANDROID_LOG_INFO, "MDB_READ_WRITE","10. mdb write 0x%04X", data);
-        return write(m_fd, (char*)&data, 2) == 2;
-    }
+    return write(m_fd, (char*)&data, 2) == 2;
+}
 
 int MDB_Driver::mdb_flush(int fd, int queue_selector)
 {
@@ -263,12 +269,12 @@ void MDB_Driver::send_config_info(void)
     uint8_t checksum = 0;
     // calculate checksum, no Mode bit yet
     checksum = ( (uint8_t)(CSH_READER_CONFIG_INFO & 0x00FF)
-                 + m_csh_config.featureLevel    
-                 + m_csh_config.countryCodeH    
-                 + m_csh_config.countryCodeL    
-                 + m_csh_config.scaleFactor     
-                 + m_csh_config.decimalPlaces   
-                 + m_csh_config.maxResponseTime 
+                 + m_csh_config.featureLevel
+                 + m_csh_config.countryCodeH
+                 + m_csh_config.countryCodeL
+                 + m_csh_config.scaleFactor
+                 + m_csh_config.decimalPlaces
+                 + m_csh_config.maxResponseTime
                  + m_csh_config.miscOptions );
 
 //    mdb_write(CSH_ACK);
@@ -337,11 +343,11 @@ void MDB_Driver::mdb_slave_func()
 
             if ((vmc_cmd >= VMC_CMD_RESET) && (vmc_cmd <= VMC_CMD_EXPANSION)) {
 
-if (vmc_cmd != vmc_cmd_former ) {
-    __android_log_print(ANDROID_LOG_INFO, mdbLog, "7. cmd = %s (0x%04X) 0x%04X",
-                        to_string((VMC_Command) vmc_cmd).c_str(), vmc_cmd , m_csh_poll_state);
-    vmc_cmd_former = vmc_cmd;
-}
+                if (vmc_cmd != vmc_cmd_former ) {
+                    __android_log_print(ANDROID_LOG_INFO, mdbLog, "7. cmd = %s (0x%04X) 0x%04X",
+                                        to_string((VMC_Command) vmc_cmd).c_str(), vmc_cmd , m_csh_poll_state);
+                    vmc_cmd_former = vmc_cmd;
+                }
 
                 switch ((VMC_Command) vmc_cmd) {
                     case VMC_CMD_RESET:
@@ -429,24 +435,24 @@ void MDB_Driver::mdb_handle_reset()
 //    uint8_t expected_chksum = VMC_CMD_RESET;
 //    if(res && ((uint8_t)(data & 0x00ff)) == expected_chksum)
 //    {
-        MDB_LOG(LOG_INFO, "RESET requested");
-        // Reset all data
-        m_vmc_config.featureLevel   = 0;
-        m_vmc_config.displayColumns = 0;
-        m_vmc_config.displayRows    = 0;
-        m_vmc_config.displayInfo    = 0;
+    MDB_LOG(LOG_INFO, "RESET requested");
+    // Reset all data
+    m_vmc_config.featureLevel   = 0;
+    m_vmc_config.displayColumns = 0;
+    m_vmc_config.displayRows    = 0;
+    m_vmc_config.displayInfo    = 0;
 
-        m_vmc_prices.maxPrice = 0;
-        m_vmc_prices.minPrice = 0;
+    m_vmc_prices.maxPrice = 0;
+    m_vmc_prices.minPrice = 0;
 
-        m_csh_error_code = 0;
-        // Send ACK, turn INACTIVE
-        m_csh_state = CSH_STATE_INACTIVE;
-        m_csh_poll_state = CSH_JUST_RESET_POLL_STATE;
+    m_csh_error_code = 0;
+    // Send ACK, turn INACTIVE
+    m_csh_state = CSH_STATE_INACTIVE;
+    m_csh_poll_state = CSH_JUST_RESET_POLL_STATE;
 
-        // Send Just_Reset back
-        mdb_write(CSH_JUST_RESET, "26");
-        mdb_write(CSH_ACK, "27");
+    // Send Just_Reset back
+    mdb_write(CSH_JUST_RESET, "26");
+    mdb_write(CSH_ACK, "27");
 //    }
 }
 
@@ -456,16 +462,16 @@ void MDB_Driver::mdb_handle_reset()
 void MDB_Driver::mdb_handle_poll(void)
 {
 //ADDED
-static int ack_cntr = 0, status =0;
+    static int ack_cntr = 0, status =0;
 
     // Read checksum
     uint16_t vmc_chk;
-    bool ret = mdb_read(&vmc_chk );
-//    bool ret = mdb_read(&vmc_chk , "103. mdb_handle_poll");
+//    bool ret = mdb_read(&vmc_chk );
+    bool ret = mdb_read(&vmc_chk , "103. mdb_handle_poll");
 
     if (m_csh_poll_state_former != m_csh_poll_state) {
         __android_log_print(ANDROID_LOG_INFO, "MDB_LOG",
-                            "8. read = 0x%04X ,poll-state= %s (0x%04X)",
+                            "11. read = 0x%04X ,poll-state= %s (0x%04X)",
                             vmc_chk, to_string_poll((Poll_State) m_csh_poll_state).c_str(),
                             m_csh_poll_state);
         m_csh_poll_state_former = m_csh_poll_state;
@@ -489,14 +495,14 @@ static int ack_cntr = 0, status =0;
             break;
         case CSH_ACK_POLL_STATE:
             // if no data is to send, answer with ACK
-            MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_ACK %d", ack_cntr);
+//            MDB_LOG(LOG_INFO, "m_csh_poll_state = CSH_ACK %d", ack_cntr);
             mdb_write(CSH_ACK );
 //            mdb_write(CSH_ACK , "CSH_ACK_POLL_STATE");
-ack_cntr++;
-if (ack_cntr == 100) {
-    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
-    MDB_LOG(LOG_INFO, "***********m_csh_poll_state %d => CSH_BEGIN_SESSION_POLL_STATE", ack_cntr);
-}
+            ack_cntr++;
+            if (ack_cntr == 100) {
+                m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
+                MDB_LOG(LOG_INFO, "***********m_csh_poll_state %d => CSH_BEGIN_SESSION_POLL_STATE", ack_cntr);
+            }
 
             break;
         case CSH_JUST_RESET_POLL_STATE:
@@ -890,7 +896,7 @@ void MDB_Driver::enable(void)
     mdb_write(CSH_ACK,  "4. enable");
 }
 
-void MDB_Driver::cancelled(void) 
+void MDB_Driver::cancelled(void)
 {
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
     if (m_csh_state != CSH_STATE_ENABLED)
@@ -918,7 +924,7 @@ void MDB_Driver::expansion_request_ID(void)
      * 27, 28 -- Software Version (2 elements)
      * 29 -- Checksum (1 element)
      */
- 
+
     // Store data
     for (i = 0; i < 30; ++i)
     {
@@ -957,7 +963,7 @@ void MDB_Driver::start_vending_state()
 {
 
     MDB_LOG(LOG_INFO, __PRETTY_FUNCTION__ );
-      m_vend_state = VEND_STATE_WAITING_SELECTION;
+    m_vend_state = VEND_STATE_WAITING_SELECTION;
 
 //    m_csh_poll_state = CSH_BEGIN_SESSION_POLL_STATE;
     m_csh_poll_state = CSH_ACK_POLL_STATE;
@@ -967,21 +973,21 @@ void MDB_Driver::start_vending_state()
     {
         MDB_LOG(LOG_INFO, "in simulation state");
         std::thread select_thread = std::thread([](MDB_Driver* driver)
-            {
-                MDB_LOG(LOG_INFO, "sleep_for 10 sec to simulate selection");
-                std::this_thread::sleep_for(std::chrono::seconds(10));
-                if (driver->m_simulation_mode == NO_SELECTION_SCENARIO)
-                {
-                    MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_FAILED");
-                    driver->m_vend_state = VEND_STATE_FAILED;
-                }
-                else
-                {
-                    MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_WAITING_APPROVAL");
-                    driver->m_vend_state = VEND_STATE_WAITING_APPROVAL;
-                    driver->m_item_price = 500;
-                }
-            }, this);
+                                                {
+                                                    MDB_LOG(LOG_INFO, "sleep_for 10 sec to simulate selection");
+                                                    std::this_thread::sleep_for(std::chrono::seconds(10));
+                                                    if (driver->m_simulation_mode == NO_SELECTION_SCENARIO)
+                                                    {
+                                                        MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_FAILED");
+                                                        driver->m_vend_state = VEND_STATE_FAILED;
+                                                    }
+                                                    else
+                                                    {
+                                                        MDB_LOG(LOG_INFO, "setting vend state to VEND_STATE_WAITING_APPROVAL");
+                                                        driver->m_vend_state = VEND_STATE_WAITING_APPROVAL;
+                                                        driver->m_item_price = 500;
+                                                    }
+                                                }, this);
         select_thread.detach();
     }
 }

@@ -234,6 +234,8 @@ private:
     VMC_Prices m_vmc_prices = VMC_Prices(0, 0);
     Poll_State m_csh_poll_state = CSH_RESTARTED_POLL_STATE;
     Poll_State m_csh_poll_state_former;
+    uint16_t data_former;
+    uint16_t data_rs_former;
     uint8_t m_csh_state = CSH_STATE_INACTIVE;
     // Available user funds, changed via server connection in the Enabled state
     uint16_t m_user_funds  = 0x0000;
